@@ -836,7 +836,7 @@
         // MQTT Connection
         function connectMQTT() {
             const clientId = 'web-client-' + Math.random().toString(16).substr(2, 8);
-            client = new Paho.MQTT.Client('broker.hivemq.com', 8884, clientId);
+            client = new Paho.MQTT.Client('broker.hivemq.com', Number(8884), clientId);
             
             client.onConnectionLost = (responseObject) => {
                 console.log('Connection lost:', responseObject.errorMessage);
@@ -899,4 +899,5 @@
         };
     </script>
 </body>
+
 </html>
