@@ -834,70 +834,70 @@
         }
 
         // MQTT Connection
-        function connectMQTT() {
-            const clientId = 'web-client-' + Math.random().toString(16).substr(2, 8);
-            client = new Paho.MQTT.Client(
-            "broker.hivemq.com",
-            Number(8884),
-            "web-" + Math.random().toString(16).substr(2, 8)
-            );    
-            client.onConnectionLost = (responseObject) => {
-                console.log('Connection lost:', responseObject.errorMessage);
-                document.getElementById('mqtt-status').className = 'status-dot disconnected';
-                document.getElementById('mqtt-text').textContent = 'MQTT Disconnected';
-            };
-            
-            client.onMessageArrived = (message) => {
-                console.log('Message:', message.destinationName, message.payloadString);
-                const topic = message.destinationName;
-                const payload = message.payloadString;
-                
-                // Parse topic: methma/transformers/{location}/{id}/{type}
-                const topicParts = topic.split('/');
-                if (topicParts.length === 5 && topicParts[0] === 'methma' && topicParts[1] === 'transformers') {
-                    const locationCode = topicParts[2];
-                    const transformerId = topicParts[3];
-                    const sensorType = topicParts[4];
-                    
-                    try {
-                        const data = JSON.parse(payload);
-                        const isCritical = data.status === 'critical';
-                        updateTransformerSensorStatus(transformerId, locationCode, sensorType, isCritical);
-                    } catch (e) {
-                        // Fallback for non-JSON messages
-                        const isCritical = payload.includes('ALERT') || payload.includes('critical') || payload.includes('above threshold');
-                        updateTransformerSensorStatus(transformerId, locationCode, sensorType, isCritical);
-                    }
-                }
-            };
-            
-            client.connect({
-                client = new Paho.MQTT.Client(
-                "broker.hivemq.com",
-                Number(8884),
-                "web-" + Math.random().toString(16).substr(2, 8));
-                onSuccess: () => {
-                    console.log('Connected to MQTT broker');
-                    document.getElementById('mqtt-status').className = 'status-dot connected';
-                    document.getElementById('mqtt-text').textContent = 'MQTT Connected';
-                    
-                    // Subscribe to all transformer topics
-                    transformers.forEach(t => {
-                        const baseTopic = `methma/transformers/${t.locationCode}/${t.transformerId}`;
-                        client.subscribe(`${baseTopic}/temperature`);
-                        client.subscribe(`${baseTopic}/pressure`);
-                        client.subscribe(`${baseTopic}/gas`);
-                        client.subscribe(`${baseTopic}/status`);
-                        console.log('Subscribed to:', baseTopic);
-                    });
-                },
-                onFailure: (error) => {
-                    console.error('Connection failed:', error);
-                    document.getElementById('mqtt-status').className = 'status-dot disconnected';
-                    document.getElementById('mqtt-text').textContent = 'Connection Failed';
-                }
-            });
+    function connectMQTT() {
+    const clientId = 'web-client-' + Math.random().toString(16).substr(2, 8);
+
+    client = new Paho.MQTT.Client(
+        "broker.hivemq.com",
+        Number(8884),      // Secure WebSocket
+        "/mqtt",           // 🔴 REQUIRED PATH
+        clientId
+    );
+
+    client.onConnectionLost = (responseObject) => {
+        console.error("MQTT connection lost:", responseObject.errorMessage);
+        document.getElementById('mqtt-status').className = 'status-dot disconnected';
+        document.getElementById('mqtt-text').textContent = 'MQTT Disconnected';
+    };
+
+    client.onMessageArrived = (message) => {
+        console.log("MQTT message:", message.destinationName, message.payloadString);
+
+        const topicParts = message.destinationName.split('/');
+        if (topicParts.length !== 5) return;
+
+        const locationCode = topicParts[2];
+        const transformerId = topicParts[3];
+        const sensorType = topicParts[4];
+
+        try {
+            const data = JSON.parse(message.payloadString);
+            const isCritical = data.status === "critical";
+
+            updateTransformerSensorStatus(
+                transformerId,
+                locationCode,
+                sensorType,
+                isCritical
+            );
+        } catch (e) {
+            console.warn("Invalid JSON payload");
         }
+    };
+
+    client.connect({
+        useSSL: true,
+        cleanSession: true,
+        timeout: 15,
+
+        onSuccess: () => {
+            console.log("✅ MQTT CONNECTED (HiveMQ WSS)");
+            document.getElementById('mqtt-status').className = 'status-dot connected';
+            document.getElementById('mqtt-text').textContent = 'MQTT Connected';
+
+            // Subscribe to ALL transformers
+            client.subscribe("methma/transformers/+/+/+");
+            console.log("Subscribed to methma/transformers/+/+/+");
+        },
+
+        onFailure: (error) => {
+            console.error("❌ MQTT CONNECTION FAILED", error);
+            document.getElementById('mqtt-status').className = 'status-dot disconnected';
+            document.getElementById('mqtt-text').textContent = 'Connection Failed';
+        }
+    });
+}
+
 
         // Initialize
         window.onload = () => {
@@ -908,4 +908,5 @@
 </body>
 
 </html>
+
 
